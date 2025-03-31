@@ -1,0 +1,16 @@
+.submit-bar-wrapper {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+.card {
+  margin-bottom: 16px;
+}
+
+.status-table {
+  border-right: 1px solid #d6d5d4;
+  border-left: 1px solid #d6d5d4;
+  border-bottom: 1px solid #d6d5d4;
+  border-radius: 0 0 4px 4px;
+}

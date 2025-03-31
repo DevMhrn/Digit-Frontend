@@ -1,78 +1,112 @@
-
-import React,{useState} from "react";
+import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useHistory } from "react-router-dom";
-import { FormComposerV2, Header,Toast, UploadFileComposer } from "@egovernments/digit-ui-react-components";
-import { newConfig } from "../../configs/ApplyConnectionConfig";
-import { transformCreateData } from "../../utils/createUtils";
-
-
+import { FormComposerV2, Header, Toast, Loader } from "@egovernments/digit-ui-react-components";
+import { waterConnectionConfig } from "../../configs/waterConnectionConfig";
 
 const ApplyConnection = () => {
   const tenantId = Digit.ULBService.getCurrentTenantId();
-  const [showToast, setShowToast] = useState(null);
   const { t } = useTranslation();
   const history = useHistory();
-  const reqCreate = {
-    url: `/egov-hrms/employees/_create`,
-    params: {},
-    body: {},
-    config: {
-      enable: true,
-    },
-  };
+  const [showToast, setShowToast] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const mutation = Digit.Hooks.useCustomAPIMutationHook(reqCreate);
+  const transformWaterConnectionData = (formData) => {
+    const connectionDetails = {
+      connectionType: formData.connectionType?.code,
+      noOfTaps: formData.noOfTaps,
+      pipeSize: formData.pipeSize?.code,
+      waterSource: formData.waterSource?.code,
+    };
 
-  const onSubmit = async(data) => {
-    console.log(data, "data");
-    await mutation.mutate(
-      {
-        url: `/egov-hrms/employees/_create`,
-        params: { tenantId },
-        body: transformCreateData(data),
-        config: {
-          enable: true,
+    const plumberInfo = {
+      detailsProvidedBy: formData.detailsProvidedBy?.code,
+      plumberName: formData.plumberName,
+      licenseNumber: formData.licenseNumber,
+      mobileNumber: formData.mobileNumber,
+    };
+
+    const roadCuttingInfo = formData.roadType ? [{
+      roadType: formData.roadType?.code,
+      roadCuttingArea: formData.roadCuttingArea || 0,
+    }] : [];
+
+    const documents = formData.documents?.map(doc => ({
+      documentType: doc.documentType,
+      fileStoreId: doc.fileStoreId,
+      documentUid: doc.documentUid,
+    })) || [];
+
+    return {
+      WaterConnection: {
+        propertyId: formData.propertyId,
+        service: "WATER",
+        connectionType: connectionDetails.connectionType,
+        noOfTaps: connectionDetails.noOfTaps,
+        pipeSize: connectionDetails.pipeSize,
+        waterSource: connectionDetails.waterSource,
+        connectionCategory: "GENERAL",
+        additionalDetails: {
+          detailsProvidedBy: plumberInfo.detailsProvidedBy,
+          plumberName: plumberInfo.plumberName,
+          licenseNumber: plumberInfo.licenseNumber,
+          mobileNumber: plumberInfo.mobileNumber,
+          initialMeterReading: formData.initialMeterReading || null,
         },
-      },{
-        onSuccess:(data)=>{
-          setShowToast({ key: "success", label: "Individual Created Successfully" });
-        },
-        onError:(error) => {
-          setShowToast({ key: "error", label: "Individual Creation Failed"});
-        }
+        roadCuttingInfo: roadCuttingInfo,
+        documents: documents,
       }
-    );
+    };
   };
+
+  const onSubmit = async (data) => {
+    setIsLoading(true);
+    try {
+      const transformedData = transformWaterConnectionData(data);
+      sessionStorage.setItem("WS_APPLICATION_DATA", JSON.stringify(transformedData));
+      history.push("/digit-ui/employee/sample/apply-connection-confirmation");
+    } catch (error) {
+      console.error("Error in form submission:", error);
+      setShowToast({ key: "error", label: t("WS_APPLICATION_SUBMISSION_ERROR") });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return <Loader />;
+  }
+
   return (
     <div>
-      <Header> {t("Apply for New Water Connection")}</Header>
+      <Header>{t("Apply for New Water Connection")}</Header>
       <FormComposerV2
-        label={t("SUBMIT BUTTON")}
-        config={newConfig.map((config) => {
+        label={t("Next")}
+        config={waterConnectionConfig.map((config) => {
           return {
             ...config,
           };
         })}
         defaultValues={{}}
-        onFormValueChange ={ (setValue, formData, formState, reset, setError, clearErrors, trigger, getValues) => {
-          console.log(formData, "formData");
+        onFormValueChange={(setValue, formData, formState, reset, setError, clearErrors, trigger, getValues) => {
+          if (formData?.connectionType?.code === "Metered") {
+            setValue("initialMeterReading", "");
+          }
         }}
-        onSubmit={(data,) => onSubmit(data, )}
+        onSubmit={(data) => onSubmit(data)}
         fieldStyle={{ marginRight: 0 }}
       />
-      {/* <UploadFileComposer /> */}
-      {/* <FileUpload uploadedFiles={[]} variant="uploadField" /> */}
-       {showToast && (
-                <Toast style={{ zIndex: 10001 }}
-                    label={showToast.label}
-                    type={showToast.key}
-                    error={showToast.key === "error"}
-                    onClose={() => setShowToast(null)}
-                />
-            )}
+      {showToast && (
+        <Toast
+          style={{ zIndex: 10001 }}
+          label={showToast.label}
+          type={showToast.key}
+          error={showToast.key === "error"}
+          onClose={() => setShowToast(null)}
+        />
+      )}
     </div>
   );
-}
+};
 
 export default ApplyConnection;
